@@ -152,9 +152,9 @@
                     "medium",
                     currentPuzzle.fen
                 );
-
+                const today = new Date().toLocaleDateString();
                 showStatus(
-                    "Daily Puzzle Challenge",
+                    `Daily Puzzle Challenge - ${today}`,
                     false
                 );
             }
