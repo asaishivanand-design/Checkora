@@ -53,6 +53,11 @@ def landing(request):
 @ensure_csrf_cookie
 def index(request):
     """Render the board and initialise a new game in the session."""
+    if 'game' in request.session:
+        game_data = request.session['game']
+        status = game_data.get('game_status', 'active')
+        if status in ['checkmate', 'draw', 'resign', 'stalemate', 'timeout']:
+            del request.session['game']
     if 'game' not in request.session:
         game = ChessGame()
         request.session['game'] = game.to_dict()
