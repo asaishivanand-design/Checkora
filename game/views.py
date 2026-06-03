@@ -34,6 +34,7 @@ from django.core.mail import (
 from django.template.loader import render_to_string
 from django.contrib import messages
 from django.core.cache import cache
+from django.db import IntegrityError, transaction
 from django.db.models import F, Q
 from .forms import CustomUserCreationForm
 from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
@@ -569,61 +570,86 @@ def resign_game(request):
 
 @require_GET
 def check_username(request):
-    """Check if a username is already taken."""
+    """Check if a username is already taken.
+
+    Checks both active and inactive users to avoid leaking
+    whether a pending-verification account exists.
+    """
     username = request.GET.get('username', '').strip()
     if not username:
         return JsonResponse({'available': False, 'error': 'No username provided'}, status=400)
-    exists = User.objects.filter(
-        username__iexact=username,
-        is_active=True
-    ).exists()
+    exists = User.objects.filter(username__iexact=username).exists()
     return JsonResponse({'available': not exists})
 
 
 def register_view(request):
+    """Handle new user registration with OTP email verification."""
     if request.user.is_authenticated:
         return redirect('index')
 
     if request.method == 'POST':
         form = CustomUserCreationForm(request.POST)
-        is_valid = form.is_valid()
-        
-        # Ghost Account Cleanup: Only run if form is perfectly valid except for username/email conflicts
-        if not is_valid and set(form.errors.keys()).issubset({'username', 'email'}):
-            username = request.POST.get('username')
-            email = request.POST.get('email')
-            
-            if username and email:
-                deleted = False
-                # 1. Exact match (User retrying with the exact same details)
-                if User.objects.filter(username=username, email=email, is_active=False).exists():
-                    User.objects.filter(username=username, email=email, is_active=False).delete()
-                    deleted = True
-                else:
-                    # 2. Username conflict (Free up unverified, abandoned usernames)
-                    if User.objects.filter(username=username, is_active=False).exists():
-                        User.objects.filter(username=username, is_active=False).delete()
-                        deleted = True
-                    # 3. Email conflict (Free up unverified, abandoned emails)
-                    if User.objects.filter(email=email, is_active=False).exists():
-                        User.objects.filter(email=email, is_active=False).delete()
-                        deleted = True
-                
-                if deleted:
-                    # Re-validate the form now that conflicts are cleared
-                    form = CustomUserCreationForm(request.POST)
-                    is_valid = form.is_valid()
+        if form.is_valid():
+            username = form.cleaned_data['username']
+            email = form.cleaned_data['email']
 
-        if is_valid:
-            user = form.save(commit=False)
-            user.is_active = False  # Deactivate account till OTP is verified
-            user.save()
+            # Security: detect conflicts with existing accounts inside
+            # an atomic block to eliminate race conditions between the
+            # check and the subsequent insert.
+            with transaction.atomic():
+                active_conflict = User.objects.filter(
+                    Q(username__iexact=username) | Q(email__iexact=email),
+                    is_active=True,
+                ).select_for_update().exists()
+
+                if active_conflict:
+                    # Return the same generic response as a successful
+                    # registration so attackers cannot distinguish
+                    # between "email/username exists" and "new account".
+                    messages.success(
+                        request,
+                        'If your details are valid, a verification '
+                        'code has been sent to your email.',
+                    )
+                    return redirect('verify_otp')
+
+                # Re-verification: if an inactive account already owns
+                # this username or email, reuse it instead of creating
+                # a duplicate.  This preserves the original account.
+                inactive_user = User.objects.filter(
+                    Q(username__iexact=username) | Q(email__iexact=email),
+                    is_active=False,
+                ).select_for_update().first()
+
+                if inactive_user:
+                    user = inactive_user
+                    # Update password to the one the user just supplied
+                    user.set_password(form.cleaned_data['password1'])
+                    user.username = username
+                    user.email = email
+                    user.save()
+                else:
+                    try:
+                        user = form.save(commit=False)
+                        user.is_active = False
+                        user.save()
+                    except IntegrityError:
+                        # Concurrent insert beat us despite the atomic
+                        # block — return the same generic message.
+                        messages.success(
+                            request,
+                            'If your details are valid, a verification '
+                            'code has been sent to your email.',
+                        )
+                        return redirect('verify_otp')
 
             # Generate 6-digit OTP
             otp = str(secrets.randbelow(900000) + 100000)
             request.session['registration_user_id'] = user.id
             # Hash OTP with SECRET_KEY as salt to prevent reading from signed cookies
-            otp_hash = hashlib.sha256(f"{otp}:{settings.SECRET_KEY}".encode()).hexdigest()
+            otp_hash = hashlib.sha256(
+                f"{otp}:{settings.SECRET_KEY}".encode()
+            ).hexdigest()
             request.session['registration_otp_hash'] = otp_hash
             request.session['otp_created_at'] = time.time()
 
@@ -633,7 +659,10 @@ def register_view(request):
             )
 
             if settings.DEBUG and missing_email_credentials:
-                print(f"[Checkora] Development registration OTP for {user.email}: {otp}")
+                print(
+                    f"[Checkora] Development registration OTP "
+                    f"for {user.email}: {otp}"
+                )
                 return redirect('verify_otp')
 
             # Send Email
@@ -643,31 +672,35 @@ def register_view(request):
                     'Please enter this code to activate your account.'
                 )
                 html_message = (
-                    "<div style=\"font-family: 'Segoe UI', Arial, sans-serif; "
-                    "background-color: #0f0f1a; color: #d0d0d0; padding: 40px "
-                    "20px; text-align: center;\"><div style=\"background-"
-                    "color: #16162a; border: 1px solid #252545; border-radius"
-                    ": 12px; padding: 40px 30px; max-width: 450px; margin: 0 "
-                    "auto; box-shadow: 0 10px 30px rgba(0,0,0,0.5);\">"
-                    "<h1 style=\"color: #ffffff; margin-top: 0; margin-bottom"
-                    ": 15px; font-size: 28px; letter-spacing: 2px;\">CHECK"
-                    "<span style=\"color: #f0c040;\">ORA</span></h1>"
-                    "<hr style=\"border: none; border-top: 1px solid #252545; "
-                    "margin: 20px 0;\"><p style=\"color: #e0e0e0; font-size: "
-                    "16px; line-height: 1.5; margin-bottom: 30px;\">Welcome "
-                    "to the elite chess platform. To activate your account "
-                    "and start playing, please use the verification code "
-                    "below:</p><div style=\"margin: 35px 0;\"><span style=\""
-                    "font-family: 'Consolas', monospace; font-size: 36px; "
-                    "font-weight: bold; color: #f0c040; letter-spacing: 8px; "
-                    "background: #0f0f1a; padding: 15px 25px; border-radius: "
-                    "8px; border: 1px solid #3d3222; display: inline-block;"
-                    "\">{otp}</span></div><p style=\"color: #8a8aaa; font-"
-                    "size: 14px; margin-top: 30px;\">Enter this code on the "
-                    "verification page to complete your registration.</p>"
-                    "<p style=\"color: #5a5a7a; font-size: 12px; margin-top: "
-                    "40px;\">If you didn't attempt to register on Checkora, "
-                    "please safely ignore this email.</p></div></div>"
+                    "<div style=\"font-family: 'Segoe UI', Arial, "
+                    "sans-serif; background-color: #0f0f1a; color: "
+                    "#d0d0d0; padding: 40px 20px; text-align: center;"
+                    "\"><div style=\"background-color: #16162a; border"
+                    ": 1px solid #252545; border-radius: 12px; padding"
+                    ": 40px 30px; max-width: 450px; margin: 0 auto; "
+                    "box-shadow: 0 10px 30px rgba(0,0,0,0.5);\">"
+                    "<h1 style=\"color: #ffffff; margin-top: 0; "
+                    "margin-bottom: 15px; font-size: 28px; "
+                    "letter-spacing: 2px;\">CHECK<span style=\"color: "
+                    "#f0c040;\">ORA</span></h1><hr style=\"border: "
+                    "none; border-top: 1px solid #252545; margin: "
+                    "20px 0;\"><p style=\"color: #e0e0e0; font-size: "
+                    "16px; line-height: 1.5; margin-bottom: 30px;\">"
+                    "Welcome to the elite chess platform. To activate "
+                    "your account and start playing, please use the "
+                    "verification code below:</p><div style=\"margin: "
+                    "35px 0;\"><span style=\"font-family: 'Consolas', "
+                    "monospace; font-size: 36px; font-weight: bold; "
+                    "color: #f0c040; letter-spacing: 8px; background: "
+                    "#0f0f1a; padding: 15px 25px; border-radius: 8px; "
+                    "border: 1px solid #3d3222; display: inline-block;"
+                    "\">{otp}</span></div><p style=\"color: #8a8aaa; "
+                    "font-size: 14px; margin-top: 30px;\">Enter this "
+                    "code on the verification page to complete your "
+                    "registration.</p><p style=\"color: #5a5a7a; "
+                    "font-size: 12px; margin-top: 40px;\">If you "
+                    "didn't attempt to register on Checkora, please "
+                    "safely ignore this email.</p></div></div>"
                 ).format(otp=otp)
                 send_mail(
                     'Your Checkora Verification Code',
@@ -710,11 +743,8 @@ def verify_otp(request):
 
         if otp_created_at:
             if time.time() - otp_created_at > 300:
-                try:
-                    user = User.objects.get(id=user_id, is_active=False)
-                    user.delete()
-                except User.DoesNotExist:
-                    pass
+                # Security: preserve the inactive account so the
+                # user can re-register without losing their username.
                 messages.error(
                     request,
                     'OTP has expired. Please register again.',
@@ -760,10 +790,10 @@ def verify_otp(request):
                     )
                     email.attach_alternative(html_content, "text/html")
                     email.send(fail_silently=True)
-                
+
                 except Exception as e:
                     logger.warning("Failed to send welcome email: %s", e)
-                    
+
                 login(request, user)
                 messages.success(
                     request,

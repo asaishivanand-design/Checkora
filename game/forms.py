@@ -11,16 +11,31 @@ class CustomUserCreationForm(UserCreationForm):
         fields = UserCreationForm.Meta.fields + ('email',)
 
     def clean_email(self):
-        email = self.cleaned_data.get('email')
-        if email:
-            from django.contrib.auth import get_user_model
-            User = get_user_model()
-            if User.objects.filter(email__iexact=email).exists():
-                raise ValidationError(
-                    "A user with this email address already exists.",
-                    code='duplicate_email'
-                )
-        return email
+        """Validate and normalize the email field.
+
+        Duplicate-email checks are intentionally deferred to the view
+        layer, which returns a generic response regardless of whether
+        the address is already registered.  This prevents user
+        enumeration through form-level error messages.
+        """
+        return self.cleaned_data.get('email')
+
+    def clean_username(self):
+        """Return the username without raising on duplicates.
+
+        The view layer handles username conflicts with a generic
+        response to prevent user enumeration.
+        """
+        return self.cleaned_data.get('username')
+
+    def validate_unique(self):
+        """Skip ModelForm uniqueness checks.
+
+        Username and email uniqueness are enforced inside the view's
+        ``transaction.atomic`` block so that race conditions are
+        eliminated and responses remain generic.
+        """
+        pass
 
 
 class CustomSetPasswordForm(SetPasswordForm):
