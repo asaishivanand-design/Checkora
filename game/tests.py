@@ -2354,7 +2354,7 @@ class OtpBruteForceProtectionTest(TestCase):
 
         # Attacker fails OTP 5 times on the dummy flow
         for _ in range(5):
-            response = attacker_client.post(self.verify_url, {'otp': '000000'})
+            attacker_client.post(self.verify_url, {'otp': '000000'})
         
         # Verify that the legit user session's counter is still untouched (can still verify OTP successfully)
         response_legit = self.client.post(self.verify_url, {'otp': self.correct_otp}, follow=True)
