@@ -2032,7 +2032,7 @@
 
                         if (move) {
                             const result = replayBoard.move(move);
-                            console.log("Replaying:", move, result)
+                        
                         }
                     }
 
