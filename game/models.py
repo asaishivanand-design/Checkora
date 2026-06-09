@@ -80,20 +80,25 @@ class UserProgress(models.Model):
     )
 
     xp = models.PositiveIntegerField(
-        default=0
+        default=0,
+        db_index=True
     )
 
     level = models.PositiveIntegerField(
-        default=1
+        default=1,
+        db_index=True
     )
 
-    def __str__(self):
+    def __str__(self) -> str:
         return (
             f"{self.user.username} "
             f"(Level {self.level}, XP {self.xp})"
         )
         
-        
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
 class LessonProgress(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,

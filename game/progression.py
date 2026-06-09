@@ -12,7 +12,12 @@ LEVEL_THRESHOLDS = {
 }
 
 
-def calculate_level(xp):
+def calculate_level(xp: int) -> int:
+    if xp < 0:
+        raise ValueError(
+            f"xp must be non-negative, got {xp}"
+        )
+        
     level = 1
 
     for lvl, threshold in LEVEL_THRESHOLDS.items():
@@ -22,7 +27,12 @@ def calculate_level(xp):
     return level
 
 
-def award_xp(user, amount):
+def award_xp(user, amount: int) -> UserProgress:
+    if amount <= 0:
+        raise ValueError(
+            f"amount must be positive, got {amount}"
+        )
+        
     progress, _ = UserProgress.objects.get_or_create(
         user=user
     )
@@ -31,7 +41,7 @@ def award_xp(user, amount):
     progress.level = calculate_level(
         progress.xp
     )
-
+    
     progress.save()
 
     return progress

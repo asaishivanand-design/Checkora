@@ -1353,25 +1353,12 @@ def update_puzzle_stats(request):
         user=request.user
     )
 
-    old_solved = stats.puzzles_solved
-
     stats.puzzles_solved = data.get("puzzles_solved", 0)
     stats.current_streak = data.get("current_streak", 0)
     stats.best_streak = data.get("best_streak", 0)
     stats.daily_completions = data.get("daily_completions", 0)
 
     stats.save()
-    
-    new_solved = stats.puzzles_solved
-
-    if new_solved > old_solved:
-        earned_xp = (new_solved - old_solved) * 10
-
-        award_xp(
-            request.user,
-            earned_xp
-        )
-
 
     check_puzzle_achievements(
         request.user,
