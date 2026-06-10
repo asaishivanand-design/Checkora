@@ -99,6 +99,101 @@ class UserProgress(models.Model):
         self.full_clean()
         super().save(*args, **kwargs)
 
+
+class PlayerRating(models.Model):
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="player_rating"
+    )
+
+    rating = models.PositiveIntegerField(
+        default=1200,
+        db_index=True
+    )
+
+    games_played = models.PositiveIntegerField(
+        default=0
+    )
+
+    wins = models.PositiveIntegerField(
+        default=0
+    )
+
+    losses = models.PositiveIntegerField(
+        default=0
+    )
+
+    draws = models.PositiveIntegerField(
+        default=0
+    )
+
+    updated_at = models.DateTimeField(
+        auto_now=True
+    )
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(
+                    games_played=(
+                        models.F("wins")
+                        + models.F("losses")
+                        + models.F("draws")
+                    )
+                ),
+                name="games_played_matches_results",
+            ),
+        ]
+        
+    def __str__(self):
+        return (
+            f"{self.user.username} "
+            f"(Rating {self.rating})"
+        )
+    
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+
+class RatingHistory(models.Model):
+    RESULT_CHOICES = [
+        ("win", "Win"),
+        ("loss", "Loss"),
+        ("draw", "Draw"),
+    ]
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="rating_history"
+    )
+
+    old_rating = models.PositiveIntegerField()
+
+    new_rating = models.PositiveIntegerField()
+
+    rating_change = models.IntegerField()
+
+    result = models.CharField(
+        max_length=10,
+        choices=RESULT_CHOICES
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True
+    )
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return (
+            f"{self.user.username} "
+            f"{self.rating_change:+}"
+        )
+
 class LessonProgress(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,

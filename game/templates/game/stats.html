@@ -42,6 +42,26 @@
             <div class="num">{{ progress.xp }}</div>
             <div class="label">⚡ XP</div>
         </div>
+
+        <div class="card">
+            <div class="num">{{ rating.rating }}</div>
+            <div class="label">♟ Chess Rating</div>
+        </div>
+
+        <div class="card">
+            <div class="num">
+                {% if rating.rating < 1000 %}
+                    Beginner
+                {% elif rating.rating < 1400 %}
+                    Intermediate
+                {% elif rating.rating < 1800 %}
+                    Advanced
+                {% else %}
+                    Expert
+                {% endif %}
+            </div>
+            <div class="label">🏅 Rank Tier</div>
+        </div>
     </div>
 
     <div style="text-align:center; margin-top:20px; margin-bottom:20px;">
@@ -89,5 +109,46 @@
     </div>
     {% endif %}
 
+    <h2>Chess Rating History</h2>
+
+    {% if history %}
+    <div style="overflow-x:auto;">
+        <table>
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Result</th>
+                    <th>Old Rating</th>
+                    <th>New Rating</th>
+                    <th>Change</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for item in history %}
+                <tr>
+                    <td>{{ item.created_at|date:"Y-m-d H:i" }}</td>
+                    <td>{{ item.result }}</td>
+                    <td>{{ item.old_rating }}</td>
+                    <td>{{ item.new_rating }}</td>
+
+                    <td>
+                        {% if item.rating_change > 0 %}
+                            +{{ item.rating_change }}
+                        {% else %}
+                            {{ item.rating_change }}
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty">
+        <p>No rating history available yet.</p>
+    </div>
+    {% endif %}
+    
 </body>
 </html>
