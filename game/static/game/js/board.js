@@ -2192,6 +2192,7 @@
                     const blindfoldBtn = document.getElementById('blindfoldBtn');
                     if (blindfoldBtn) blindfoldBtn.textContent = 'Blindfold: OFF';
                 }
+                updateThinkingDots();
             
                 let title = '', message = '';
                 
@@ -2728,6 +2729,75 @@
             ========================================================== */
             const fmt = t => `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
             function formatTime(t) { return fmt(t); }
+
+                function updateThinkingDots() {
+    const whiteClock = document.getElementById('whiteClock');
+    const blackClock = document.getElementById('blackClock');
+
+    if (!whiteClock || !blackClock) return;
+    
+    // Determine target clock before any DOM changes
+let targetClock = null;
+
+if (!paused && !gameOver) {
+    if (whiteClock.classList.contains('active')) {
+        targetClock = whiteClock;
+    } else if (blackClock.classList.contains('active')) {
+        targetClock = blackClock;
+    }
+}
+
+// Check if dots are already in the correct place
+const whiteTimeEl = whiteClock.querySelector('.time');
+const blackTimeEl = blackClock.querySelector('.time');
+
+const whiteHasDots =
+    whiteTimeEl?.querySelector('.thinking-dots') !== null;
+
+const blackHasDots =
+    blackTimeEl?.querySelector('.thinking-dots') !== null;
+
+if (targetClock === whiteClock && whiteHasDots && !blackHasDots) return;
+
+if (targetClock === blackClock && blackHasDots && !whiteHasDots) return;
+
+if (!targetClock && !whiteHasDots && !blackHasDots) return;
+
+
+    // Remove existing dots
+    whiteClock.querySelector('.thinking-dots')?.remove();
+    blackClock.querySelector('.thinking-dots')?.remove();
+
+    // Stop when game ends
+    if (paused || gameOver) return;
+
+    const activeClock =
+        whiteClock.classList.contains('active')
+            ? whiteClock
+            : blackClock.classList.contains('active')
+                ? blackClock
+                : null;
+
+    if (!targetClock) return;
+    
+    const dots = document.createElement('span');
+dots.className = 'thinking-dots';
+
+dots.innerHTML = `
+    <span></span>
+    <span></span>
+    <span></span>
+`;
+
+const timeEl = targetClock.querySelector('.time');
+
+if (timeEl) {
+    timeEl.appendChild(dots);
+}
+
+                }
+
+
             
             function formatGameDuration(ms) {
                 const totalSeconds = Math.floor(ms / 1000);
@@ -2800,12 +2870,14 @@
                 const bYou = document.getElementById('blackYouTag');
                 if (wYou) wYou.style.display = (gameMode === 'ai' && playerColor === 'white') ? 'inline' : 'none';
                 if (bYou) bYou.style.display = (gameMode === 'ai' && playerColor === 'black') ? 'inline' : 'none';
+                updateThinkingDots();
             }
 
             function updatePauseUI() {
                 pauseBtn.textContent = paused ? 'Resume' : 'Pause';
                 pauseBtn.classList.toggle('paused', paused);
                 boardEl.classList.toggle('paused', paused);
+                updateThinkingDots();
                 if (paused) {
                     boardEl.setAttribute('aria-label', 'Game paused. Click board or press P to resume.');
                     boardEl.style.cursor = 'pointer';
