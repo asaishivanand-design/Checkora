@@ -154,3 +154,31 @@ class AnalysisTest(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json(), {'error': f'Move must be a string of at most {MAX_MOVE_LENGTH} characters'})
 
+    def test_api_endpoint_moves_exact_limit(self):
+        self.client.force_login(self.user)
+        payload = {
+            "moves": ["e4"] * MAX_ANALYSIS_MOVES,
+            "result": "Win",
+            "reason": "Checkmate"
+        }
+        response = self.client.post(
+            reverse('analyze_game'),
+            data=json.dumps(payload),
+            content_type='application/json'
+        )
+        self.assertEqual(response.status_code, 200)
+
+    def test_api_endpoint_move_string_exact_limit(self):
+        self.client.force_login(self.user)
+        payload = {
+            "moves": ["e4", "a" * MAX_MOVE_LENGTH],
+            "result": "Win",
+            "reason": "Checkmate"
+        }
+        response = self.client.post(
+            reverse('analyze_game'),
+            data=json.dumps(payload),
+            content_type='application/json'
+        )
+        self.assertEqual(response.status_code, 200)
+
