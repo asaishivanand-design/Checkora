@@ -1718,6 +1718,14 @@ def stats_view(request):
         len(level["lessons"])
         for level in LESSON_LEVELS
     )
+    lesson_completion_percentage = (
+        round(
+            (lessons_completed / total_lessons) * 100,
+            2
+        )
+        if total_lessons > 0
+        else 0
+    )
     
     # Puzzle Analytics
     puzzle_stats, _ = PuzzleStats.objects.get_or_create(
