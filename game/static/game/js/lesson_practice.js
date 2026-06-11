@@ -284,7 +284,15 @@ document.addEventListener(
             B: "♗",
             R: "♖",
             Q: "♕",
-            K: "♔"
+            K: "♔",
+
+            p: "♟",
+            n: "♞",
+            b: "♝",
+            r: "♜",
+            q: "♛",
+            k: "♚",
+            
         };
 
         board.innerHTML = "";

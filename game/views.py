@@ -1922,7 +1922,7 @@ LESSON_LEVELS = [
             "Check and Checkmate",
             "Castling",
             "Opening Principles",
-           "Chess Notation",
+            "Chess Notation",
             "Piece Values",
             "En Passant",
             "Pawn Promotion",
@@ -2407,7 +2407,7 @@ def lesson_detail_view(request, lesson_name):
                     "title": "En Passant Opportunity",
                     "position": {
                         "e5": "P",
-                        "d5": "P"
+                        "d5": "p"
                     },
                     "highlight": ["d6"]
                 }
@@ -2420,7 +2420,7 @@ def lesson_detail_view(request, lesson_name):
             ],
             "practice_position": {
                 "e5": "P",
-                "d5": "P"
+                "d5": "p"
             }
         },
 
@@ -2725,7 +2725,7 @@ def lesson_detail_view(request, lesson_name):
                 {
                     "title": "Remove the Defender",
                     "position": {
-                        "d8": "Q",
+                        "d8": "q",
                         "d7": "R"
                     },
                     "highlight": ["d7"]
@@ -2740,7 +2740,7 @@ def lesson_detail_view(request, lesson_name):
             "practice_position": {
                 "d1": "Q",
                 "d7": "R",
-                "d8": "Q"
+                "d8": "q"
             }
         },
 
@@ -2769,7 +2769,7 @@ def lesson_detail_view(request, lesson_name):
                     "title": "Deflect the Rook",
                     "position": {
                         "d8": "R",
-                        "d7": "Q"
+                        "d7": "q"
                     },
                     "highlight": ["d8"]
                 }
@@ -2783,7 +2783,7 @@ def lesson_detail_view(request, lesson_name):
             "practice_position": {
                 "d1": "Q",
                 "d8": "R",
-                "d7": "Q"
+                "d7": "q"
             }
         },
 
@@ -2812,7 +2812,7 @@ def lesson_detail_view(request, lesson_name):
                     "title": "Decoy the King",
                     "position": {
                         "g7": "Q",
-                        "h8": "K"
+                        "h8": "k"
                     },
                     "highlight": ["g7"]
                 }
@@ -2825,7 +2825,7 @@ def lesson_detail_view(request, lesson_name):
             ],
             "practice_position": {
                 "g7": "Q",
-                "h8": "K"
+                "h8": "k"
             }
         },
         
