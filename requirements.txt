@@ -1,0 +1,3 @@
+Django
+python-chess
+python-dotenv
